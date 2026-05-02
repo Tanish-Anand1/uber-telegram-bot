@@ -87,6 +87,21 @@ function startCallbackServer(bot) {
   // ── Health check ──────────────────────────────────────────────────────────
   app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
+  // ── Config debug — shows exact redirect URI to paste in Uber portal ───────
+  app.get('/config', (req, res) => {
+    const redirectUri = process.env.REDIRECT_URI || 'NOT SET';
+    const baseUrl = process.env.WEBHOOK_URL ||
+      (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'NOT SET');
+    res.send(htmlPage(
+      'Bot Configuration',
+      '⚙️',
+      `<b>Redirect URI (copy this exactly into Uber portal):</b><br><br>` +
+      `<code style="background:#f0f0f0;padding:8px 14px;border-radius:8px;font-size:14px;word-break:break-all">${redirectUri}</code><br><br>` +
+      `<b>Public URL:</b> ${baseUrl}<br><br>` +
+      `Make sure this EXACT string appears in your Uber Developer Portal → Redirect URIs (no trailing slash, must be https).`
+    ));
+  });
+
   app.get('/', (req, res) => res.send(htmlPage('Uber Telegram Bot', '🚕', 'Bot is running. Open Telegram to use it.')));
 
   const PORT = process.env.PORT || 3000;
