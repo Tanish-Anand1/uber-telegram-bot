@@ -1,6 +1,9 @@
 const axios = require('axios');
 
-const UBER_API_BASE = 'https://api.uber.com/v1.2';
+// Use sandbox when UBER_SANDBOX=true or when no production access granted yet
+const UBER_API_BASE = process.env.UBER_SANDBOX === 'true'
+  ? 'https://sandbox-api.uber.com/v1.2'
+  : 'https://api.uber.com/v1.2';
 
 /**
  * Get ride price estimates and ETAs
