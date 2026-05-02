@@ -26,7 +26,7 @@ function generateAuthURL(userId) {
     client_id: process.env.UBER_CLIENT_ID,
     response_type: 'code',
     redirect_uri: REDIRECT_URI(),
-    scope: 'profile history request',
+    scope: 'profile history',
     state
   });
 
