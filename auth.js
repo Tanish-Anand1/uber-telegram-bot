@@ -2,7 +2,14 @@ const axios = require('axios');
 const crypto = require('crypto');
 
 const UBER_AUTH_BASE = 'https://login.uber.com/oauth/v2';
-const REDIRECT_URI = () => process.env.REDIRECT_URI || 'http://localhost:3000/callback';
+const REDIRECT_URI = () => {
+  let uri = process.env.REDIRECT_URI || 'http://localhost:3000/callback';
+  // Auto-fix missing protocol (common Railway env var mistake)
+  if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
+    uri = 'https://' + uri;
+  }
+  return uri;
+};
 
 // state → userId map, expires after 10 minutes
 const pendingAuth = new Map();

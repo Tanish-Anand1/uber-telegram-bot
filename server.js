@@ -17,10 +17,24 @@ function startCallbackServer(bot) {
 
   // ── Uber OAuth callback ───────────────────────────────────────────────────
   app.get('/callback', async (req, res) => {
-    const { code, state, error } = req.query;
+    const { code, state, error, error_description } = req.query;
 
     if (error) {
-      return res.send(htmlPage('Login Cancelled', '❌', 'You cancelled the login. Return to Telegram and use /start to try again.'));
+      const desc = error_description || error;
+      console.error(`[CALLBACK] Uber OAuth error: ${error} — ${desc}`);
+      console.error(`[CALLBACK] Full query:`, req.query);
+      return res.send(htmlPage(
+        'Uber Login Error',
+        '❌',
+        `<b>Uber returned an error:</b><br><br>` +
+        `<code style="background:#f5f5f5;padding:6px 12px;border-radius:6px;font-size:13px">${desc}</code><br><br>` +
+        `<b>Error code:</b> ${error}<br><br>` +
+        `Common causes:<br>` +
+        `• App not approved in Uber Developer Portal (needs approval for <b>request</b> scope)<br>` +
+        `• Wrong scopes enabled on the app<br>` +
+        `• Redirect URI still mismatched<br><br>` +
+        `Check Railway logs for full details, then use /start in Telegram to try again.`
+      ));
     }
 
     if (!code || !state) {
