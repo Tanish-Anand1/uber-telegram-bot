@@ -101,18 +101,27 @@ function startCallbackServer(bot) {
   // ── Health check ──────────────────────────────────────────────────────────
   app.get('/health', (req, res) => res.json({ status: 'ok', uptime: process.uptime() }));
 
-  // ── Config debug — shows exact redirect URI to paste in Uber portal ───────
+  // ── Config debug — shows exact config and OAuth URL ──────────────────────
   app.get('/config', (req, res) => {
     const redirectUri = process.env.REDIRECT_URI || 'NOT SET';
     const baseUrl = process.env.WEBHOOK_URL ||
       (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'NOT SET');
+    const clientId = process.env.UBER_CLIENT_ID || 'NOT SET';
+    const sandbox = process.env.UBER_SANDBOX === 'true' ? 'YES (sandbox)' : 'NO (production)';
+
+    const { generateAuthURL } = require('./auth');
+    const testOAuthUrl = generateAuthURL('debug_test');
+
     res.send(htmlPage(
       'Bot Configuration',
       '⚙️',
-      `<b>Redirect URI (copy this exactly into Uber portal):</b><br><br>` +
-      `<code style="background:#f0f0f0;padding:8px 14px;border-radius:8px;font-size:14px;word-break:break-all">${redirectUri}</code><br><br>` +
+      `<b>Uber Client ID:</b> <code style="background:#f0f0f0;padding:2px 8px;border-radius:4px">${clientId}</code><br><br>` +
+      `<b>Sandbox Mode:</b> ${sandbox}<br><br>` +
+      `<b>Redirect URI:</b><br>` +
+      `<code style="background:#f0f0f0;padding:8px 14px;border-radius:8px;font-size:13px;word-break:break-all;display:block;margin:8px 0">${redirectUri}</code>` +
       `<b>Public URL:</b> ${baseUrl}<br><br>` +
-      `Make sure this EXACT string appears in your Uber Developer Portal → Redirect URIs (no trailing slash, must be https).`
+      `<b>Test OAuth URL (click to test login flow):</b><br>` +
+      `<a href="${testOAuthUrl}" style="font-size:12px;word-break:break-all">${testOAuthUrl}</a>`
     ));
   });
 
