@@ -2,9 +2,15 @@ const axios = require('axios');
 const crypto = require('crypto');
 
 const UBER_AUTH_BASE = 'https://login.uber.com/oauth/v2';
+
+// Strip any accidental surrounding quotes (e.g. from Railway env var copy-paste)
+function cleanEnv(key) {
+  return (process.env[key] || '').trim().replace(/^["']|["']$/g, '');
+}
+
 const REDIRECT_URI = () => {
   let uri = process.env.REDIRECT_URI || 'http://localhost:3000/callback';
-  // Auto-fix missing protocol (common Railway env var mistake)
+  uri = uri.trim().replace(/^["']|["']$/g, '');
   if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
     uri = 'https://' + uri;
   }
@@ -18,19 +24,30 @@ const pendingAuth = new Map();
  * Generate Uber OAuth URL for a given Telegram userId
  */
 function generateAuthURL(userId) {
+  const clientId = cleanEnv('UBER_CLIENT_ID');
+  if (!clientId) {
+    throw new Error('UBER_CLIENT_ID is not set in environment variables');
+  }
+
+  const redirectUri = REDIRECT_URI();
+
   const state = crypto.randomBytes(16).toString('hex');
   pendingAuth.set(state, userId);
   setTimeout(() => pendingAuth.delete(state), 10 * 60 * 1000);
 
+  // Use %20 encoding for scopes (some OAuth servers reject + for spaces)
   const params = new URLSearchParams({
-    client_id: process.env.UBER_CLIENT_ID,
+    client_id: clientId,
     response_type: 'code',
-    redirect_uri: REDIRECT_URI(),
+    redirect_uri: redirectUri,
     scope: 'profile history',
     state
   });
 
-  return `${UBER_AUTH_BASE}/authorize?${params.toString()}`;
+  // Replace + with %20 in scope value to avoid server-side quirks
+  const url = `${UBER_AUTH_BASE}/authorize?` + params.toString().replace(/\+/g, '%20');
+  console.log(`[AUTH] OAuth URL redirect_uri: ${redirectUri}`);
+  return url;
 }
 
 /**
@@ -48,8 +65,8 @@ async function exchangeCodeForToken(code) {
     const response = await axios.post(
       `${UBER_AUTH_BASE}/token`,
       new URLSearchParams({
-        client_id: process.env.UBER_CLIENT_ID,
-        client_secret: process.env.UBER_CLIENT_SECRET,
+        client_id: cleanEnv('UBER_CLIENT_ID'),
+        client_secret: cleanEnv('UBER_CLIENT_SECRET'),
         grant_type: 'authorization_code',
         redirect_uri: REDIRECT_URI(),
         code
@@ -80,8 +97,8 @@ async function refreshAccessToken(refreshToken) {
     const response = await axios.post(
       `${UBER_AUTH_BASE}/token`,
       new URLSearchParams({
-        client_id: process.env.UBER_CLIENT_ID,
-        client_secret: process.env.UBER_CLIENT_SECRET,
+        client_id: cleanEnv('UBER_CLIENT_ID'),
+        client_secret: cleanEnv('UBER_CLIENT_SECRET'),
         grant_type: 'refresh_token',
         refresh_token: refreshToken
       }).toString(),
@@ -120,6 +137,14 @@ async function getUserProfile(authToken) {
     console.error('[AUTH] Profile fetch error:', error.message);
     return { name: 'User', email: '', phone: '', uuid: '' };
   }
+}
+
+// Log client_id at startup so mismatches are immediately visible in logs
+const _cid = cleanEnv('UBER_CLIENT_ID');
+if (!_cid) {
+  console.error('[AUTH] CRITICAL: UBER_CLIENT_ID is not set — OAuth will fail!');
+} else {
+  console.log(`[AUTH] Client ID loaded: ${_cid.slice(0, 6)}...${_cid.slice(-4)} (len=${_cid.length})`);
 }
 
 module.exports = {

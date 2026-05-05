@@ -23,17 +23,30 @@ function startCallbackServer(bot) {
       const desc = error_description || error;
       console.error(`[CALLBACK] Uber OAuth error: ${error} — ${desc}`);
       console.error(`[CALLBACK] Full query:`, req.query);
+      const redirectUri = (process.env.REDIRECT_URI || 'http://localhost:3000/callback').trim().replace(/^["']|["']$/g, '');
+      const isInvalidClient = error === 'invalid_client' || desc?.toLowerCase().includes('invalid client');
+      const helpText = isInvalidClient
+        ? `<b>This means Uber does not recognise your Client ID or Redirect URI.</b><br><br>` +
+          `<b>Checklist:</b><br>` +
+          `<ol style="text-align:left;margin:8px 0;padding-left:20px">` +
+          `<li>Go to <a href="https://developer.uber.com/dashboard">developer.uber.com/dashboard</a></li>` +
+          `<li>Open your app → <b>Authorizations</b> tab</li>` +
+          `<li>Under <b>Redirect URIs</b>, add exactly:<br>` +
+          `<code style="background:#f5f5f5;padding:4px 10px;border-radius:4px;font-size:13px;display:inline-block;margin:6px 0;word-break:break-all">${redirectUri}</code></li>` +
+          `<li>Confirm <b>Client ID</b> in your <code>.env</code> matches the portal</li>` +
+          `<li>Save changes and wait 1–2 minutes, then try again</li>` +
+          `</ol>`
+        : `Common causes:<br>` +
+          `• Redirect URI not registered in Uber Developer Portal<br>` +
+          `• Wrong scopes enabled on the app<br><br>` +
+          `Check logs for full details, then use /start in Telegram to try again.`;
+
       return res.send(htmlPage(
         'Uber Login Error',
         '❌',
         `<b>Uber returned an error:</b><br><br>` +
-        `<code style="background:#f5f5f5;padding:6px 12px;border-radius:6px;font-size:13px">${desc}</code><br><br>` +
-        `<b>Error code:</b> ${error}<br><br>` +
-        `Common causes:<br>` +
-        `• App not approved in Uber Developer Portal (needs approval for <b>request</b> scope)<br>` +
-        `• Wrong scopes enabled on the app<br>` +
-        `• Redirect URI still mismatched<br><br>` +
-        `Check Railway logs for full details, then use /start in Telegram to try again.`
+        `<code style="background:#f5f5f5;padding:6px 12px;border-radius:6px;font-size:13px">${desc || error}</code><br><br>` +
+        helpText
       ));
     }
 
@@ -103,24 +116,32 @@ function startCallbackServer(bot) {
 
   // ── Config debug — shows exact config and OAuth URL ──────────────────────
   app.get('/config', (req, res) => {
-    const redirectUri = process.env.REDIRECT_URI || 'NOT SET';
+    const redirectUri = (process.env.REDIRECT_URI || 'http://localhost:3000/callback').trim().replace(/^["']|["']$/g, '');
     const baseUrl = process.env.WEBHOOK_URL ||
       (process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : 'NOT SET');
-    const clientId = process.env.UBER_CLIENT_ID || 'NOT SET';
-    const sandbox = process.env.UBER_SANDBOX === 'true' ? 'YES (sandbox)' : 'NO (production)';
+    const rawClientId = process.env.UBER_CLIENT_ID || '';
+    const clientId = rawClientId.trim().replace(/^["']|["']$/g, '');
+    const hasQuotes = rawClientId !== clientId;
+    const sandbox = process.env.UBER_SANDBOX === 'true' ? 'YES (sandbox API)' : 'NO (production API)';
 
     const { generateAuthURL } = require('./auth');
     const testOAuthUrl = generateAuthURL('debug_test');
 
+    const clientIdDisplay = clientId
+      ? `<code style="background:#f0f0f0;padding:2px 8px;border-radius:4px">${clientId}</code>` +
+        (hasQuotes ? ` <span style="color:red">⚠️ Had extra quotes stripped from env var!</span>` : ' ✅')
+      : `<span style="color:red">❌ NOT SET — set UBER_CLIENT_ID in environment</span>`;
+
     res.send(htmlPage(
       'Bot Configuration',
       '⚙️',
-      `<b>Uber Client ID:</b> <code style="background:#f0f0f0;padding:2px 8px;border-radius:4px">${clientId}</code><br><br>` +
+      `<b>Uber Client ID:</b><br>${clientIdDisplay}<br><br>` +
+      `<b>Client ID length:</b> ${clientId.length} chars ${clientId.length === 32 ? '✅' : '⚠️ (expected 32)'}<br><br>` +
       `<b>Sandbox Mode:</b> ${sandbox}<br><br>` +
-      `<b>Redirect URI:</b><br>` +
+      `<b>Redirect URI (must be registered in Uber portal):</b><br>` +
       `<code style="background:#f0f0f0;padding:8px 14px;border-radius:8px;font-size:13px;word-break:break-all;display:block;margin:8px 0">${redirectUri}</code>` +
-      `<b>Public URL:</b> ${baseUrl}<br><br>` +
-      `<b>Test OAuth URL (click to test login flow):</b><br>` +
+      `<b>Public URL (Telegram webhook):</b> ${baseUrl}<br><br>` +
+      `<b>Test OAuth URL:</b><br>` +
       `<a href="${testOAuthUrl}" style="font-size:12px;word-break:break-all">${testOAuthUrl}</a>`
     ));
   });

@@ -71,7 +71,24 @@ bot.onText(/\/start/, async (msg) => {
     }
 
     // Generate OAuth login URL with this user's state
-    const loginUrl = generateAuthURL(userId);
+    let loginUrl;
+    try {
+      loginUrl = generateAuthURL(userId);
+    } catch (authErr) {
+      console.error('[START] OAuth config error:', authErr.message);
+      return bot.sendMessage(
+        chatId,
+        `⚠️ *Bot Not Configured*\n\n` +
+        `The bot is missing Uber API credentials.\n\n` +
+        `*To fix this:*\n` +
+        `1. Go to developer.uber.com\n` +
+        `2. Create an app and copy the Client ID\n` +
+        `3. Set \`UBER_CLIENT_ID\` in your .env file\n` +
+        `4. Register your redirect URI in the Uber portal\n\n` +
+        `Contact the bot admin for assistance.`,
+        { parse_mode: 'Markdown' }
+      );
+    }
 
     getOrCreateSession(userId);
 
