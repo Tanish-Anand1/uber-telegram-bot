@@ -60,8 +60,10 @@ async function start() {
     const tunnel = await localtunnel({ port: PORT });
 
     const url = tunnel.url;
-    process.env.WEBHOOK_URL  = url;
-    process.env.REDIRECT_URI = `${url}/callback`;
+    process.env.WEBHOOK_URL = url;
+    // Do NOT override REDIRECT_URI with the ephemeral tunnel URL — it changes every
+    // restart and cannot be registered in Uber portal. Keep the fixed localhost URI
+    // from .env (http://localhost:3000/callback) which the browser hits directly.
 
     // Register webhook with Telegram
     await axios.get(`https://api.telegram.org/bot${TOKEN}/deleteWebhook`).catch(() => {});
@@ -70,15 +72,16 @@ async function start() {
     });
     const whOk = wh.data?.ok ? '✅' : '⚠️';
 
+    const redirectUri = process.env.REDIRECT_URI || 'http://localhost:3000/callback';
     console.log('');
     console.log('══════════════════════════════════════════════════════');
     console.log('🌍 BOT IS LIVE GLOBALLY!');
     console.log(`🔗 Public URL:   ${url}`);
-    console.log(`📎 Redirect URI: ${process.env.REDIRECT_URI}`);
+    console.log(`📎 Redirect URI: ${redirectUri}`);
     console.log(`${whOk} Telegram webhook: ${wh.data?.description || 'set'}`);
     console.log('');
-    console.log('⚠️  Update Uber Portal → Redirect URIs:');
-    console.log(`    ${process.env.REDIRECT_URI}`);
+    console.log('✅ Uber Portal → Redirect URIs must include:');
+    console.log(`    ${redirectUri}`);
     console.log('══════════════════════════════════════════════════════');
 
     tunnel.on('close', () => {

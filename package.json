@@ -4,9 +4,10 @@
   "description": "Global Uber Telegram Bot — Text & Voice Cab Booking",
   "main": "index.js",
   "scripts": {
-    "start": "node start-ngrok.js",
-    "dev": "nodemon start-ngrok.js",
-    "local": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "tunnel": "node start-ngrok.js",
+    "tunnel:dev": "nodemon start-ngrok.js"
   },
   "dependencies": {
     "@google-cloud/speech": "^6.0.0",
